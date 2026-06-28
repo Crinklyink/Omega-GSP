@@ -1,0 +1,11 @@
+.venv/
+data/
+models/
+reports/
+__pycache__/
+*.pyc
+*.db
+.optuna*
+.env
+*.env
+secrets.*

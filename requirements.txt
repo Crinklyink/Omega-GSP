@@ -1,0 +1,10 @@
+numpy
+pandas
+scikit-learn
+lightgbm
+yfinance
+optuna
+pyarrow
+joblib
+tqdm
+lxml

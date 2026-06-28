@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import sys; print\\(sys.executable\\)\")",
+      "Bash(python -c \"import os; print\\('cores:', os.cpu_count\\(\\)\\)\")",
+      "Bash(wmic path *)",
+      "Bash(wmic computersystem *)",
+      "Bash(python -c \"import importlib; [print\\(m, '->', \\(importlib.import_module\\(m\\).__version__ if importlib.util.find_spec\\(m\\) else 'MISSING'\\)\\) for m in ['numpy','pandas','sklearn','lightgbm','xgboost','torch','yfinance']]\")",
+      "PowerShell(Get-CimInstance Win32_VideoController | Select-Object Name, AdapterRAM, DriverVersion | Format-List; \"=== RAM \\(GB\\) ===\"; [math]::Round\\(\\(Get-CimInstance Win32_ComputerSystem\\).TotalPhysicalMemory/1GB,1\\); \"=== CPU ===\"; \\(Get-CimInstance Win32_Processor\\).Name)",
+      "Bash(python -m venv .venv)",
+      "Bash(.venv/Scripts/python.exe -m pip install --upgrade pip --quiet)",
+      "Bash(.venv/Scripts/python.exe -m pip install numpy pandas scikit-learn lightgbm yfinance optuna pyarrow joblib tqdm)"
+    ]
+  }
+}
