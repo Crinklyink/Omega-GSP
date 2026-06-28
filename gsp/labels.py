@@ -1,15 +1,19 @@
 """Label construction.
 
-Decision time = close of day t. The label asks about day t+1 ONLY:
+Decision time = close of day t. We act at the OPEN of day t+1. The default target
+(TARGET_MODE="high_vs_open") asks the TRADEABLE question:
 
-    y = 1  iff  High_{t+1} >= Close_t * (1 + TARGET_MOVE)
+    y = 1  iff  High_{t+1} >= Open_{t+1} * (1 + TARGET_MOVE)
 
-This is the one place we are allowed to peek at the future. We also stash two
-forward returns used later by the realistic backtest (these are NOT features and
-must never be fed to the model):
+i.e. after you buy at tomorrow's open, does the stock climb >= 8% intraday that day
+(so a +8% limit fills)? This deliberately excludes the overnight gap — a name that
+opened already up doesn't count unless it keeps climbing.
 
-    fwd_high_ret = High_{t+1} / Close_t - 1     (best-case if you held from close)
-    fwd_open_ret = Open_{t+1} / Close_t - 1     (the overnight gap you can't trade)
+We also stash forward returns used only by the backtest (NEVER features):
+
+    fwd_high_ret = High_{t+1}  / Close_t - 1
+    fwd_open_ret = Open_{t+1}  / Close_t - 1
+    fwd_close_ret= Close_{t+1} / Close_t - 1
 
 The last row of every ticker has no t+1, so its label is NaN and gets dropped from
 training but is exactly the row we score live in scan.py.
@@ -17,7 +21,7 @@ training but is exactly the row we score live in scan.py.
 from __future__ import annotations
 import pandas as pd
 
-from .config import TARGET_MOVE
+from .config import TARGET_MOVE, TARGET_MODE
 
 
 def make_labels(df: pd.DataFrame) -> pd.DataFrame:
@@ -31,7 +35,13 @@ def make_labels(df: pd.DataFrame) -> pd.DataFrame:
     out["fwd_high_ret"] = high_next / close_t - 1.0
     out["fwd_open_ret"] = open_next / close_t - 1.0
     out["fwd_close_ret"] = close_next / close_t - 1.0
-    out["y"] = (high_next >= close_t * (1.0 + TARGET_MOVE)).astype("float32")
-    # Where there is no next day, the label is undefined.
-    out.loc[high_next.isna(), "y"] = pd.NA
+
+    if TARGET_MODE == "high_vs_open":
+        # +8% from the OPEN, intraday (tradeable, excludes the gap).
+        out["y"] = (high_next >= open_next * (1.0 + TARGET_MOVE)).astype("float32")
+        out.loc[high_next.isna() | open_next.isna(), "y"] = pd.NA
+    else:
+        # +8% from the prior CLOSE (includes overnight gap).
+        out["y"] = (high_next >= close_t * (1.0 + TARGET_MOVE)).astype("float32")
+        out.loc[high_next.isna(), "y"] = pd.NA
     return out

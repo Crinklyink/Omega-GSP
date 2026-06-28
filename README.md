@@ -1,34 +1,39 @@
-# gsp — ML next-day "pop" ranker
+# gsp — ML intraday "pop" ranker
 
-A leakage-safe machine-learning pipeline that scans a universe of stocks every day
-and **ranks them by the probability that they pop ≥ 8% the next trading session**
-(next-day intraday high ≥ today's close × 1.08).
+A leakage-safe machine-learning pipeline that scans the whole US market every day and
+**ranks stocks by how likely they are to climb ≥ 8% from the next open, intraday** —
+the *tradeable* target: buy at tomorrow's open, set a +8% limit, and it fills when the
+stock rises 8% during the day. (Set in `gsp/config.py`: `TARGET_MODE="high_vs_open"`.)
 
-It is built to be **honest**: every claim it makes about itself is measured
-out-of-sample with walk-forward testing, and there is a null-test that proves the
-framework doesn't cheat by peeking at the future.
+It is built to be **honest**: every claim is measured out-of-sample with walk-forward
+testing, two leak tests guard against peeking at the future, and the dashboard tells
+you plainly where the edge is real and where it isn't.
 
 ---
 
 ## Read this first — what this is and isn't
 
-**What it IS:** a probability machine. It learns patterns (volatility regime,
-momentum, volume spikes, "this name has been popping a lot lately", market state)
-that historically preceded big up-days, and ranks today's stocks by that
-probability. Used on a broad universe it can put its top picks meaningfully above
-the base rate — that is a real, measurable *edge*.
+**What it IS — a strong predictor.** On the broad US universe (~5,000 names, 7M
+rows), the single highest-ranked pick climbs +8% from the open on roughly **half of
+all days** out-of-sample — about **15–17× the base rate**. That is a real, measured
+edge at *finding names that move*.
 
-**What it is NOT:** a crystal ball that says "BUY XYZ, it will be +8% tomorrow."
-On any given day only ~2–6% of liquid stocks pop ≥8%. A *good* model lifts its top
-picks to maybe ~10–25% — a 2–5× edge over chance. That is genuinely valuable and
-also nowhere near certainty. Most of your top picks will NOT pop. Position and risk
-accordingly, or don't risk money at all.
+**What it is NOT (yet) — a money-printer.** This is the honest core finding: a great
+predictor is not automatically a profitable strategy. When the #1 pick *misses*, these
+volatile names fall hard, and a naive "buy at open, exit at close" rule **loses money
+at every target level** (we measured +5% → +20%; all negative). Moving ≠ moving *up
+and holdable*. Closing that gap needs **risk management** (a stop-loss to cut losers),
+which is the next build — see "Honest results" below.
 
-**The edge decays.** Markets adapt. Any edge you find will weaken; it must be
-re-trained continuously (that's what the walk-forward + `optimize` loop is for).
+**Aiming higher doesn't make stocks climb more.** The target % is the *definition of a
+win*, not a dial. Raise it and the win just gets **rarer**: the #1 pick hits +8% ~50%
+of days, +12% ~36%, +20% ~20%. Pick the level you want with the trade-off in view
+(`python scripts/target_curve.py`).
 
-**This is not financial advice.** It's a research tool. Trading 8% movers is among
-the hardest, most adversarial things in finance. You can lose everything.
+**The edge decays.** Markets adapt; retrain continuously (the `optimize` loop).
+
+**This is not financial advice.** Trading 8% movers is among the hardest, most
+adversarial things in finance. You can lose everything. Paper-trade first.
 
 ---
 
@@ -51,48 +56,55 @@ has a war story about exactly that, told honestly below.
      CANNOT, because shuffling y also de-correlates the leaked feature from the
      shuffled label). Any feature scoring ~perfect alone is a target leak.
 
-### The leak we found (this is why both tests exist)
+### Honest out-of-sample results (broad US universe, ~5,000 names, 7M rows)
 
-The first build accidentally fed `fwd_close_ret` (tomorrow's close return) into the
-model as a feature. The label shuffle test **passed anyway** (AUC→0.50) and gave
-false confidence — because shuffling the label breaks the leaked feature too. The
-SHAP panel in the dashboard is what exposed it (`fwd_close_ret` topping the
-attribution). Lesson: **a passing null-test is necessary, not sufficient.** Audit
-your feature attributions.
-
-### Honest out-of-sample results (S&P 500, 1.03M rows, after the fix)
+Target = **+8% from the open, intraday** (the tradeable one). All walk-forward, OOS:
 
 ```
-                       LEAKED (wrong)     FIXED (true)
-ROC-AUC                0.968              0.880
-precision@5 / day      38.9%              11.3%   (base rate 1.0%)
-lift vs base           39x                11.3x
-best single pick/day   —                  16.9% hit  (17x base)
-realistic strategy P&L Sharpe ~20 (!!)    -0.13%/trade, Sharpe -0.72  (LOSES money)
+ranking skill         the #1 pick climbs +8% from the open on ~50% of days (15.7× base)
+ROC-AUC               0.89
+selectivity curve     top-1 50% · top-3 44% · top-5 40% · top-10 ...  (pickier = higher)
+naive strategy P&L    -0.26%/trade  (buy open, +8% limit else exit close, 25 bps)  -> LOSES
+```
+
+**The target-level trade-off** (`scripts/target_curve.py`) — and every level loses
+money *with the naive exit*, which is the point:
+
+```
+target from open | #1 hit rate | avg $/trade (untuned)
+     +5%         |    64%      |   -0.39%
+     +8%         |    50%      |   -0.26%
+    +10%         |    42%      |   -0.32%
+    +12%         |    36%      |   -0.25%   <- "profit peak", still negative
+    +15%         |    29%      |   -0.36%
+    +20%         |    20%      |   -0.43%
 ```
 
 **Read this carefully — it's the whole point:**
 
-- ✅ **The ranking skill is real.** Out-of-sample, the model's single best pick each
-  day pops +8% about **17× more often than chance**. It genuinely finds names poised
-  to move. That is a real, measured edge in *prediction*.
-- ❌ **The naive strategy still loses money.** Buying that pick at the next open and
-  exiting on a +8% limit / close earns **−0.13%/trade**. Why the contradiction?
-  1. The move is largely in the **overnight gap you can't trade** — the +8%-from-
-     prior-close is partly gone by the open (intraday-from-open hit rate is only ~8%).
-  2. Violent names drop about as often as they pop; buy-at-open has no edge in
-     *direction*, only in *volatility*.
-  3. Costs (25 bps) finish it off.
+- ✅ **The ranking skill is real and strong.** The #1 pick climbs +8% from the open
+  ~50% of days, ~16× chance. The model genuinely finds names poised to move.
+- ❌ **The naive strategy still loses**, at *every* target. When the pick misses, these
+  volatile names fall hard, and holding to the close eats the winners. High hit-rate,
+  negative P&L. **A good predictor is not a profitable strategy** — the real lesson.
+- 🔧 **The fix is risk management, not a better target or longer search.** A stop-loss
+  that cuts losers early (~−3%) is the next build: math intuition is 50%×(+8%) +
+  50%×(−3%) − costs ≈ **+2%/trade**. It bolts onto the *same* trained model — no
+  retrain. (Whether daily-bar data is enough to model stops without whipsaw is the
+  open question; paper-trading is the only real test.)
 
-**This is the real lesson of quant trading: a good predictor is not a profitable
-strategy.** Turning 17× ranking lift into money needs a smarter entry/exit, risk
-sizing, and almost certainly better data — and it may simply not be there with free
-daily bars. Anyone showing you a clean equity curve here is hiding a leak.
+### The leak we caught earlier (why we have two leak tests)
+
+An earlier build accidentally fed `fwd_close_ret` (tomorrow's close) in as a feature.
+The label-shuffle test **passed anyway** (shuffling y de-correlates the leaked feature
+too) — false confidence. The dashboard's **SHAP panel** exposed it. Fix: `feature_columns()`
+hard-excludes every `fwd_*` column, plus a single-feature-AUC audit. **A passing
+null-test is necessary, not sufficient — audit your attributions.**
 
 **Also still inflating any positive result:** survivorship bias (the universe is
-*today's* members, backtested from 2015 — losers/delistings missing). Fixing it
-needs point-in-time, survivorship-bias-free data (paid). The only honest validation
-is forward **paper-trading**.
+*today's* members backtested from 2015 — delistings missing). Polygon's delisted-ticker
+list (`fetch_universe_polygon.py --delisted`) pushes back on it; a full fix needs paid
+point-in-time data. The only honest validation is forward **paper-trading**.
 
 ---
 
@@ -111,28 +123,49 @@ which is exactly where the value is.
 
 ## Quickstart
 
+Fast path on the S&P 500 (smaller, quicker to prove the pipeline):
+
 ```powershell
 # from c:\Users\bentl\Desktop\gsp
-.venv\Scripts\python.exe cli.py download --universe sp500     # ~1-3 min
-.venv\Scripts\python.exe cli.py build --universe sp500        # assemble features+labels
+.venv\Scripts\python.exe cli.py download --universe sp500
+.venv\Scripts\python.exe cli.py build    --universe sp500
 .venv\Scripts\python.exe cli.py evaluate --universe sp500     # HONEST out-of-sample report
 .venv\Scripts\python.exe scripts\leakage_test.py              # prove no leakage
-.venv\Scripts\python.exe cli.py train --universe sp500        # fit final model
-.venv\Scripts\python.exe cli.py scan  --universe sp500 --top 20   # today's candidates
+.venv\Scripts\python.exe cli.py train    --universe sp500
+.venv\Scripts\python.exe cli.py report   --universe sp500 --top 10   # luxury dashboard
+start reports\report.html
 ```
 
-Overnight edge-hunt (uses your CPU fully for the time budget):
+Full US market (what you actually want — micro-caps are where 8% intraday moves live):
 
 ```powershell
-.venv\Scripts\python.exe cli.py optimize --hours 12 --universe sp500
-.venv\Scripts\python.exe cli.py train --best --universe sp500     # train with found params
-.venv\Scripts\python.exe cli.py evaluate --best --universe sp500  # re-check OOS
+.venv\Scripts\python.exe scripts\fetch_universe_polygon.py    # ~5k active US tickers
+.venv\Scripts\python.exe cli.py download --universe file      # yfinance, ~30 min
+.venv\Scripts\python.exe cli.py build    --universe file      # ~7M rows
+.venv\Scripts\python.exe cli.py evaluate --universe file
+.venv\Scripts\python.exe scripts\target_curve.py              # hit-rate vs target level
+```
+
+Overnight 12-hour edge-hunt (precision@1; ticker-subsampled so it fits many trials;
+the winner retrains on the full universe; resumable via `models/optuna.db`):
+
+```powershell
+.venv\Scripts\python.exe -u cli.py optimize --hours 12 --universe file --sample-frac 0.35
+.venv\Scripts\python.exe cli.py train --best --universe file
+.venv\Scripts\python.exe cli.py evaluate --best --universe file
+.venv\Scripts\python.exe cli.py report --universe file
 ```
 
 ## Live dashboard + API keys
 
-The HTML dashboard (`cli.py report`) is enriched with live data when API keys are
-present. Put them in a **gitignored `.env`** at the project root:
+`cli.py report` writes a **self-contained, luxury "Night Ledger" dashboard** —
+black-and-gold, gold-foil masthead, a **TOP PICK hero card** with the #1 name's honest
+OOS hit-rate, the ranked book, a SHAP "why it leads" panel, a hit-rate curve, and a
+live "Markets at a Glance" strip. Open `reports/report.html` in any browser (no server).
+
+It is **enriched with live data** when API keys are present — real company names,
+**earnings dates**, news headlines, analyst recommendations, index telemetry. Put the
+keys in a **gitignored `.env`** at the project root:
 
 ```
 MASSIVE_API_KEY=...       # this is a Polygon.io key
@@ -168,20 +201,20 @@ broad, survivorship-aware universe from Polygon:
 > Security: `.env` is gitignored. You pasted these keys in chat once — rotate them
 > if that transcript could ever be seen by others.
 
-## Scanning the *whole* market (recommended for actually finding 8% movers)
+## Scanning the *whole* market (>$50M cap)
 
-Big up-moves cluster in smaller, cheaper, more volatile names that the S&P 500
-mostly excludes. To scan thousands of tickers, put one symbol per line in
-`data/universe.txt`, then use `--universe file`:
+Big up-moves cluster in smaller, more volatile names the S&P 500 excludes, so the
+broad universe is the real target. `fetch_universe_polygon.py` (above) writes the full
+active list to `data/universe.txt`. To enforce a market-cap floor (e.g. $50M) via
+Finnhub — cached and resumable, ~1–2 h for the full list:
 
 ```powershell
-.venv\Scripts\python.exe scripts\fetch_universe.py     # writes a broad NASDAQ+NYSE list
-.venv\Scripts\python.exe cli.py download --universe file
-.venv\Scripts\python.exe cli.py build    --universe file
-.venv\Scripts\python.exe cli.py evaluate --universe file
+.venv\Scripts\python.exe scripts\filter_universe_mcap.py --min-mcap 50
 ```
 
-A broad universe gives more positives to learn from and a more realistic edge.
+A broad universe gives more positives to learn from and a more realistic edge. The
+liquidity filter (`MIN_PRICE`, `MIN_DOLLAR_VOLUME`) already removes untradeable junk,
+so the mcap filter is a refinement, not a prerequisite.
 
 ---
 
@@ -190,23 +223,29 @@ A broad universe gives more positives to learn from and a more realistic edge.
 ```
 universe.py  -> which tickers to scan
 data.py      -> download & cache daily OHLCV (auto-adjusted) to data/raw/*.parquet
-features.py  -> ~45 point-in-time technical features (momentum, vol, volume,
+features.py  -> ~44 point-in-time technical features (momentum, vol, volume,
                 gaps, RSI, distance-from-MAs, 52w context, "pop history", market regime)
-labels.py    -> y = 1 if next-day High >= today's Close * 1.08
+labels.py    -> y = 1 if next-day High >= next-day Open * 1.08  (tradeable, intraday)
 dataset.py   -> stack all tickers into one table + liquidity filter
 model.py     -> LightGBM + embargoed walk-forward (the honest evaluator)
-backtest.py  -> precision@K, lift, and a realistic buy-next-open +8%-limit P&L
-optimize.py  -> Optuna search over walk-forward OOS lift (the 12-hour job)
+backtest.py  -> precision@K, the target-level curve, and a buy-next-open +8%-limit P&L
+optimize.py  -> Optuna search over walk-forward OOS precision@1 (the 12-hour job)
 scan.py      -> score the latest bar per ticker -> today's ranked candidates
+report.py    -> render the luxury HTML dashboard (+ enrich.py for live API data)
 ```
 
 ## Tuning the target
 
 Edit `gsp/config.py`:
-- `TARGET_MOVE` — the pop size (0.08 = 8%). Smaller targets are easier/more common.
-- `MIN_PRICE`, `MIN_DOLLAR_VOLUME` — tradeability filters.
+- `TARGET_MODE` — `"high_vs_open"` (tradeable: +8% from the open, intraday; default)
+  or `"high_vs_close"` (includes the un-tradeable overnight gap).
+- `TARGET_MOVE` — the move size (0.08 = 8%). Higher = bigger but **rarer** wins; see
+  `scripts/target_curve.py` for the hit-rate trade-off before you change it.
+- `MIN_PRICE`, `MIN_DOLLAR_VOLUME` — tradeability filters (≈ the >$50M-cap floor).
 - `TOP_K` — how many names you'd "buy" per day in the backtest.
-- walk-forward windows, LightGBM defaults.
+
+> After changing the target, recompute labels and re-run the leak test:
+> `cli.py build …` then `scripts/leakage_test.py`.
 
 ## Honest limitations / known gaps
 
@@ -216,14 +255,19 @@ Edit `gsp/config.py`:
 - **Survivorship bias** in any "current tickers" universe: delisted/bankrupt names
   are missing, which flatters results. This is the #1 thing inflating backtests.
 - **Fill assumptions** (buy at open, +8% limit fills) are optimistic for thin names.
-- **No fundamentals / news / options flow / earnings dates** yet — all natural
-  next features.
-- Predicts *direction/magnitude opportunity*, not a full trade plan (no stops,
-  sizing, or exits beyond the simulated rule).
+- **Catalysts are shown but not yet modeled**: earnings dates / news / analyst recs
+  appear on the dashboard (via the APIs) but aren't features in the model yet.
+- Predicts *opportunity*, not a full trade plan — **no stop-loss / sizing yet** (the
+  reason the naive strategy loses; it's upgrade #1 below).
 
 ## Next upgrades that actually move the needle (in order)
-1. Broad, survivorship-bias-free universe + better data.
-2. Add earnings-date / news / short-interest / options features.
-3. Per-regime models (calm vs. volatile markets behave differently).
-4. Probability calibration + position sizing (Kelly-capped) on top of the ranker.
-5. Paper-trade live for 1–3 months before risking a cent.
+1. **Stop-loss / risk management** — the one thing standing between the proven 50%
+   hit-rate and a positive P&L. Cut losers ~−3% instead of riding to the close.
+   Bolts onto the *same* model, no retrain. **This is the next build.**
+2. **Meta-labeling** — a second model that decides *take it / skip it / size* on the
+   #1 pick. Directly targets "the single best pick" and gives a no-trade-today signal.
+3. Probability **calibration** + position sizing (Kelly-capped) on the ranker.
+4. **Catalyst features** — earnings proximity, short interest, news/sentiment spikes
+   (the API keys already reach these); per-regime models (calm vs. volatile markets).
+5. Survivorship-bias-free, point-in-time **data** (paid) — the honest ceiling.
+6. **Paper-trade live** 1–3 months before risking a cent. The only real validation.

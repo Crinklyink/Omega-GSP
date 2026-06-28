@@ -154,97 +154,132 @@ def generate(tickers: list[str], top: int = 10,
 _TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SP — Night Edition</title>
+<title>SP — The Ledger · Night Edition</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Cinzel+Decorative:wght@700;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
 <style>
-  html,body{margin:0;padding:0;background:#07090c;font-family:'PT Serif',Georgia,serif;color:#e9edf3}
+  :root{
+    --bg:#0a0809;--panel:#110f13;--ink:#e7dcc6;--ink2:#d6cbb2;--bright:#f6efdd;
+    --mut:#948b77;--mut2:#bdb091;--gold:#c9a44c;--gold2:#ecd28a;--ox:#b35349;--sage:#9aa97f;
+  }
+  html,body{margin:0;padding:0;background:var(--bg);font-family:'EB Garamond',Georgia,serif;color:var(--ink)}
   *{box-sizing:border-box}
-  .wrap{max-width:1140px;margin:0 auto;background:#11151b;background-image:repeating-linear-gradient(0deg,rgba(214,228,246,.016) 0 1px,transparent 1px 3px);border:1px solid rgba(233,237,243,.22);box-shadow:0 22px 60px rgba(0,0,0,.6);padding:30px 40px 40px;margin-top:30px;margin-bottom:40px}
-  .rule{border-top:3px double #e9edf3}
-  .masthead{font-family:'Cinzel Decorative',serif;font-weight:900;font-size:84px;letter-spacing:.04em;color:#f6f8fb;line-height:1;margin:0;text-align:center}
-  .kicker{font-family:'Oswald',sans-serif;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8a93a3}
-  .red{color:#d24b40}
+  body{background-image:radial-gradient(1100px 460px at 50% -8%,rgba(201,164,76,.08),transparent 62%)}
+  .wrap{position:relative;max-width:1140px;margin:36px auto 50px;
+    background:linear-gradient(180deg,#14110d,#0d0b0e 62%);
+    background-image:repeating-linear-gradient(0deg,rgba(201,164,76,.02) 0 1px,transparent 1px 4px);
+    border:1px solid rgba(201,164,76,.5);
+    box-shadow:0 34px 90px rgba(0,0,0,.72), 0 0 0 1px rgba(0,0,0,.5) inset;
+    padding:36px 48px 46px}
+  .wrap::before{content:"";position:absolute;inset:9px;border:1px solid rgba(201,164,76,.22);pointer-events:none}
+  .gold{color:var(--gold)}
+  .grule{height:2px;border:0;margin:0;background:linear-gradient(90deg,transparent,var(--gold) 16%,var(--gold2) 50%,var(--gold) 84%,transparent)}
+  .hrule{height:1px;border:0;margin:0;background:linear-gradient(90deg,transparent,rgba(201,164,76,.5),transparent)}
+  .double{border-top:1px solid var(--gold);border-bottom:1px solid var(--gold);height:4px}
+  .orn{color:var(--gold);text-align:center;font-size:14px;letter-spacing:.5em;margin:14px 0 6px;opacity:.85}
+  .masthead{font-family:'Cinzel Decorative',serif;font-weight:900;font-size:88px;letter-spacing:.06em;line-height:1;margin:0;text-align:center;
+    background:linear-gradient(180deg,#f8e4ab,#d9b45e 46%,#a67d31);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .kicker{font-family:'Cinzel',serif;font-size:10.5px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--mut)}
   table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
-  th{font-family:'Oswald',sans-serif;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#c2cad6;border-bottom:3px double #e9edf3;padding:8px}
-  td{padding:11px 8px;border-bottom:1px solid rgba(233,237,243,.2)}
-  .tk{font-weight:700;font-size:18px;color:#f6f8fb}
-  .lead{font-style:italic;font-size:12px;color:#8a93a3;margin-left:8px}
-  .bar{flex:1;max-width:90px;height:5px;background:rgba(233,237,243,.12)}
-  .barf{height:100%;background:#9fb0c4}
-  .stat{flex:1;text-align:center;padding:18px 8px;border-right:1px solid rgba(233,237,243,.28)}
-  .statv{font-family:'Playfair Display',serif;font-weight:900;font-size:36px;color:#f6f8fb}
-  .statl{font-family:'Oswald',sans-serif;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8a93a3;margin-top:8px}
-  h2{font-family:'Playfair Display',serif;font-weight:900;font-size:48px;line-height:1.04;margin:18px 0 0;color:#f6f8fb}
-  h3{font-family:'Playfair Display',serif;font-weight:900;font-size:26px;margin:0 0 12px;color:#f6f8fb}
-  @media(max-width:820px){.masthead{font-size:46px}.grid{grid-template-columns:1fr !important}.rail{border-left:none !important;padding-left:0 !important;border-top:3px double #e9edf3;padding-top:18px}}
+  th{font-family:'Cinzel',serif;font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);border-bottom:1px solid var(--gold);padding:9px 8px}
+  td{padding:12px 8px;border-bottom:1px solid rgba(201,164,76,.15)}
+  .tk{font-family:'Playfair Display',serif;font-weight:700;font-size:19px;color:var(--bright);letter-spacing:.01em}
+  .lead{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:14px;color:var(--gold);margin-left:8px}
+  .bar{flex:1;max-width:92px;height:4px;background:rgba(201,164,76,.16)}
+  .barf{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2))}
+  .stat{flex:1;text-align:center;padding:18px 8px;border-right:1px solid rgba(201,164,76,.22)}
+  .statv{font-family:'Playfair Display',serif;font-weight:900;font-size:34px;color:var(--bright)}
+  .statl{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--mut);margin-top:9px}
+  h2{font-family:'Playfair Display',serif;font-weight:900;font-size:46px;line-height:1.05;margin:20px 0 0;color:var(--bright)}
+  h3{font-family:'Playfair Display',serif;font-weight:900;font-size:25px;margin:0 0 12px;color:var(--bright)}
+  a{color:inherit;text-decoration:none;border-bottom:1px dotted rgba(201,164,76,.4)}
+  @media(max-width:820px){.masthead{font-size:48px}.grid{grid-template-columns:1fr !important}.rail{border-left:none !important;padding-left:0 !important;border-top:1px solid var(--gold);padding-top:18px}.wrap{padding:22px}}
 </style></head>
 <body><div class="wrap">
-  <div style="display:flex;justify-content:space-between" class="kicker">
-    <span id="vol">Vol. III</span><span class="red">★ Night Edition ★</span><span id="modeltag">stockpred</span>
+  <div style="display:flex;justify-content:space-between;align-items:center" class="kicker">
+    <span id="vol">Vol. III · No. 24</span>
+    <span class="gold" style="letter-spacing:.3em">❦&nbsp; The Ledger · Night Edition &nbsp;❦</span>
+    <span id="modeltag">stockpred</span>
   </div>
-  <div class="rule" style="margin:8px 0"></div>
-  <h1 class="masthead">SP</h1>
-  <div style="text-align:center;font-style:italic;font-size:14px;color:#8a93a3;margin-top:6px">
-    Pre-market scan — names ranked by signal for a +<span id="tgt"></span>% pop the coming session
-  </div>
-  <div class="rule" style="margin-top:10px"></div>
-  <div class="kicker" style="text-align:center;padding:9px 0;border-bottom:1px solid #e9edf3" id="dateline"></div>
+  <div class="double" style="margin:11px 0"></div>
+
+  <header style="text-align:center;padding:14px 0 4px">
+    <div style="display:flex;align-items:center;justify-content:center;gap:28px">
+      <span style="flex:0 0 130px;height:1px;background:linear-gradient(90deg,transparent,var(--gold))"></span>
+      <h1 class="masthead">SP</h1>
+      <span style="flex:0 0 130px;height:1px;background:linear-gradient(90deg,var(--gold),transparent)"></span>
+    </div>
+    <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:16px;color:var(--mut2);margin-top:9px">
+      The pre-market ledger — names ranked by signal for a +<span id="tgt"></span>% climb the coming session
+    </div>
+  </header>
+
+  <div class="grule" style="margin-top:8px"></div>
+  <div class="kicker" style="text-align:center;padding:10px 0" id="dateline"></div>
+  <div class="hrule"></div>
 
   <h2 id="headline"></h2>
-  <p style="font-style:italic;font-size:18px;color:#c2cad6;max-width:760px" id="subhead"></p>
+  <p style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:20px;line-height:1.42;color:var(--ink2);max-width:790px" id="subhead"></p>
 
-  <div style="display:flex;border-bottom:3px double #e9edf3;margin-top:14px" id="statline"></div>
+  <div style="display:flex;border-top:1px solid var(--gold);border-bottom:1px solid var(--gold);margin-top:16px" id="statline"></div>
 
   <!-- TOP PICK hero (the one name you actually care about) -->
-  <div id="hero" style="margin-top:24px;border:2px solid #d24b40;background:rgba(210,75,64,.06);padding:22px 26px"></div>
+  <div id="hero" style="position:relative;margin-top:26px;border:1px solid var(--gold);
+    background:radial-gradient(720px 220px at 18% -10%,rgba(201,164,76,.12),transparent 70%),linear-gradient(180deg,rgba(201,164,76,.05),transparent);
+    box-shadow:0 0 0 1px rgba(201,164,76,.18) inset;padding:24px 28px"></div>
 
-  <div class="grid" style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:30px;padding-top:24px">
+  <div class="orn">✦ &nbsp;❖&nbsp; ✦</div>
+
+  <div class="grid" style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:34px;padding-top:8px">
     <section style="min-width:0">
-      <h3>Today's Book</h3>
+      <h3>The Book</h3>
       <table><thead><tr>
         <th style="text-align:left;width:34px">#</th><th style="text-align:left">Ticker</th>
         <th style="text-align:right">Last</th><th style="text-align:right;width:150px">Signal</th>
         <th style="text-align:right;width:58px">Pctl</th>
       </tr></thead><tbody id="book"></tbody></table>
-      <div style="font-style:italic;font-size:11.5px;color:#8a93a3;margin-top:8px">
-        Signal is a 0–1 model ranking score (not a calibrated probability). The honest
-        expectation for how often the top names actually pop is the hit-rate panel at right.
+      <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:13.5px;color:var(--mut);margin-top:9px">
+        Signal is a 0–1 ranking score (not a calibrated probability). The honest expectation
+        for how often the top names truly climb is the hit-rate panel at right.
       </div>
     </section>
 
-    <aside class="rail" style="min-width:0;border-left:1px solid #e9edf3;padding-left:28px">
-      <div style="border-top:4px solid #e9edf3;padding-top:7px;font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#f6f8fb;margin-bottom:14px" id="whytitle">Why #1 Leads</div>
+    <aside class="rail" style="min-width:0;border-left:1px solid var(--gold);padding-left:30px">
+      <div style="font-family:'Cinzel',serif;font-size:12px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);border-bottom:1px solid rgba(201,164,76,.4);padding-bottom:8px;margin-bottom:14px" id="whytitle">Why № 1 Leads</div>
       <div id="shap"></div>
-      <div style="font-style:italic;font-size:11.5px;color:#8a93a3;margin-top:8px">Fig. 1 — SHAP attribution (log-odds). <span class="red">Red</span> detracts.</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:12.5px;color:var(--mut);margin-top:9px">Fig. I — SHAP attribution (log-odds). <span style="color:var(--ox)">Oxblood</span> detracts.</div>
 
-      <div style="border-top:1px solid #e9edf3;padding-top:12px;margin-top:22px">
-        <div style="font-family:'Oswald',sans-serif;font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#c2cad6;margin-bottom:10px">Honest Hit-Rate (out-of-sample)</div>
+      <div style="border-top:1px solid rgba(201,164,76,.3);padding-top:14px;margin-top:24px">
+        <div style="font-family:'Cinzel',serif;font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:12px">Honest Hit-Rate · out-of-sample</div>
         <div id="curve"></div>
-        <div style="font-style:italic;font-size:11.5px;color:#8a93a3;margin-top:6px">Fig. 2 — Fraction of top-N picks/day that actually popped +<span id="tgt2"></span>%. Being pickier raises the rate; nothing reaches 100%.</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:12.5px;color:var(--mut);margin-top:8px">Fig. II — Share of top-N picks/day that truly climbed +<span id="tgt2"></span>%. Pickier raises the rate; nothing reaches 100%.</div>
       </div>
     </aside>
   </div>
 
-  <div style="margin-top:26px;border-top:1px solid #e9edf3;border-bottom:1px solid #e9edf3;padding:13px 0">
-    <div style="font-family:'Oswald',sans-serif;font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#9fb0c4;margin-bottom:12px">Markets at a Glance · live</div>
+  <div class="grule" style="margin-top:28px"></div>
+  <div style="padding:14px 0">
+    <div style="font-family:'Cinzel',serif;font-size:11px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:13px">Markets at a Glance · live</div>
     <div id="telem" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))"></div>
   </div>
+  <div class="grule"></div>
 
-  <footer style="margin-top:26px;text-align:center">
-    <div class="rule" style="padding-top:14px;font-size:12.5px;color:#8a93a3">
-      <span style="font-family:'Cinzel Decorative',serif;font-weight:900;color:#f6f8fb">SP</span>
-      &nbsp;·&nbsp; <span id="gen"></span> &nbsp;·&nbsp; <span id="uni"></span> names scanned
+  <footer style="margin-top:24px;text-align:center">
+    <div style="display:inline-flex;align-items:center;justify-content:center;width:54px;height:54px;border:1px solid var(--gold);border-radius:50%;
+      box-shadow:0 0 0 4px rgba(201,164,76,.08), 0 0 0 1px rgba(201,164,76,.4) inset;margin-bottom:12px">
+      <span style="font-family:'Cinzel Decorative',serif;font-weight:900;font-size:19px;color:var(--gold)">SP</span>
     </div>
-    <div style="font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#d24b40;margin-top:8px">
+    <div style="font-family:'Cormorant Garamond',serif;font-size:13.5px;color:var(--mut)">
+      <span id="gen"></span> &nbsp;·&nbsp; <span id="uni"></span> names scanned &nbsp;·&nbsp; A US-equity research ledger
+    </div>
+    <div style="font-family:'Cinzel',serif;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--ox);margin-top:10px">
       Research Tool — Not Financial Advice
     </div>
-    <div style="font-style:italic;font-size:12px;color:#8a93a3;margin-top:8px;max-width:760px;margin-left:auto;margin-right:auto">
-      This panel shows the model's <b>ranking</b> (which names are likeliest to move). That ranking is
-      real — but a naive buy-at-open strategy on these picks <b>lost money</b> in honest out-of-sample
-      tests (the +8% move is largely in the un-tradeable overnight gap). Ranking skill ≠ profit.
-      Validate by paper-trading before risking a cent.
+    <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:13px;color:var(--mut);margin-top:8px;max-width:780px;margin-left:auto;margin-right:auto">
+      This ledger shows the model's <b style="color:var(--ink2)">ranking</b> — which names are likeliest to move. That ranking is
+      real, but a naive buy-at-open strategy on these picks <b style="color:var(--ox)">lost money</b> in honest out-of-sample tests.
+      Ranking skill ≠ profit. Paper-trade before risking a cent.
     </div>
   </footer>
 </div>
@@ -255,95 +290,95 @@ const D = JSON.parse(document.getElementById('data').textContent);
 const pct = v => v==null ? '—' : (v*100).toFixed(1)+'%';
 document.getElementById('tgt').textContent = D.target_pct;
 document.getElementById('tgt2').textContent = D.target_pct;
-document.getElementById('gen').textContent = 'Generated ' + D.generated;
+document.getElementById('gen').textContent = 'Struck ' + D.generated;
 document.getElementById('uni').textContent = D.universe_n;
-document.getElementById('dateline').textContent = 'As of close ' + D.asof + '  ·  Long-Only  ·  Research Tool, Not Advice';
+document.getElementById('dateline').textContent = 'As of close ' + D.asof + '  ·  Long-Only  ·  Research Ledger, Not Advice';
 const top = D.picks[0] || {ticker:'—'};
 document.getElementById('headline').textContent =
-  'Engine Stakes ' + D.picks.length + ' Names; ' + top.ticker + ' Tops The Book';
+  'The House Backs ' + D.picks.length + ' Names; ' + top.ticker + ' Leads The Ledger';
 const s = D.stats || {};
 document.getElementById('subhead').textContent =
-  'Out-of-sample, the top-' + (s.k||5) + ' picks popped +' + D.target_pct + '% on ' +
+  'Out-of-sample, the top-' + (s.k||5) + ' picks climbed +' + D.target_pct + '% on ' +
   pct(s.precision_at_k) + ' of days — ' + (s.lift? s.lift.toFixed(1):'?') +
-  'x the ' + pct(s.base_rate) + ' base rate. Real edge, not certainty.';
+  '× the ' + pct(s.base_rate) + ' base rate. A real edge, not a certainty.';
 document.getElementById('whytitle').textContent = 'Why ' + top.ticker + ' Leads';
 
 // TOP PICK hero — the single name the user cares about most.
 const curveMap = {}; (s.curve||[]).forEach(c=>curveMap[c.k]=c);
 const p1 = curveMap[1];
 const hitTxt = p1 ? (p1.precision*100).toFixed(1)+'%' : '—';
-const liftTxt = p1 ? p1.lift.toFixed(0)+'x' : '—';
+const liftTxt = p1 ? p1.lift.toFixed(0)+'×' : '—';
 const eb = (top.days_to_earnings!=null)
-  ? '<span style="font-family:Oswald,sans-serif;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;margin-left:10px;border:1px solid #d24b40;color:#d24b40">⚡ Earnings '+(top.days_to_earnings<=0?'today':'in '+top.days_to_earnings+'d')+'</span>' : '';
+  ? '<span style="font-family:Cinzel,serif;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:2px 9px;margin-left:10px;border:1px solid var(--gold);color:var(--gold2)">⚜ Earnings '+(top.days_to_earnings<=0?'today':'in '+top.days_to_earnings+'d')+'</span>' : '';
 document.getElementById('hero').innerHTML =
-  '<div style="font-family:Oswald,sans-serif;font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#d24b40">★ Top Pick — Highest Conviction ★</div>'+
-  '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:14px;margin-top:8px">'+
-  '<span style="font-family:Playfair Display,serif;font-weight:900;font-size:52px;color:#f6f8fb;line-height:1">'+top.ticker+'</span>'+
-  '<span style="font-size:17px;color:#c2cad6">'+(top.name||'')+(top.industry?' · '+top.industry:'')+'</span>'+eb+'</div>'+
-  (top.headline?'<div style="font-style:italic;font-size:14px;color:#9fb0c4;margin-top:8px">“'+(top.news_url?'<a href="'+top.news_url+'" target="_blank" style="color:#9fb0c4">'+top.headline+'</a>':top.headline)+'”</div>':'')+
-  '<div style="display:flex;flex-wrap:wrap;gap:30px;margin-top:16px">'+
-  '<div><div style="font-family:Playfair Display,serif;font-weight:900;font-size:30px;color:#f6f8fb">'+top.score.toFixed(3)+'</div><div class="statl">Signal (0–1)</div></div>'+
-  '<div><div style="font-family:Playfair Display,serif;font-weight:900;font-size:30px;color:#d24b40">'+hitTxt+'</div><div class="statl">Top-pick hit rate (OOS)</div></div>'+
-  '<div><div style="font-family:Playfair Display,serif;font-weight:900;font-size:30px;color:#f6f8fb">'+liftTxt+'</div><div class="statl">vs random ('+pct(s.base_rate)+' base)</div></div>'+
-  '<div><div style="font-family:Playfair Display,serif;font-weight:900;font-size:30px;color:#f6f8fb">$'+top.close.toLocaleString(undefined,{minimumFractionDigits:2})+'</div><div class="statl">Last close</div></div>'+
+  '<div style="font-family:Cinzel,serif;font-size:11px;font-weight:600;letter-spacing:.24em;text-transform:uppercase;color:var(--gold)">✦ Top Pick · Highest Conviction ✦</div>'+
+  '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:14px;margin-top:10px">'+
+  '<span style="font-family:Playfair Display,serif;font-weight:900;font-size:54px;color:var(--bright);line-height:1">'+top.ticker+'</span>'+
+  '<span style="font-family:Cormorant Garamond,serif;font-size:19px;color:var(--ink2)">'+(top.name||'')+(top.industry?' · '+top.industry:'')+'</span>'+eb+'</div>'+
+  (top.headline?'<div style="font-family:Cormorant Garamond,serif;font-style:italic;font-size:15px;color:var(--mut2);margin-top:9px">“'+(top.news_url?'<a href="'+top.news_url+'" target="_blank">'+top.headline+'</a>':top.headline)+'”</div>':'')+
+  '<div style="display:flex;flex-wrap:wrap;gap:34px;margin-top:18px">'+
+  '<div><div style="font-family:Playfair Display,serif;font-weight:900;font-size:31px;color:var(--bright)">'+top.score.toFixed(3)+'</div><div class="statl">Signal (0–1)</div></div>'+
+  '<div><div style="font-family:Playfair Display,serif;font-weight:900;font-size:31px;color:var(--gold2)">'+hitTxt+'</div><div class="statl">Top-pick hit rate · OOS</div></div>'+
+  '<div><div style="font-family:Playfair Display,serif;font-weight:900;font-size:31px;color:var(--bright)">'+liftTxt+'</div><div class="statl">vs random ('+pct(s.base_rate)+' base)</div></div>'+
+  '<div><div style="font-family:Playfair Display,serif;font-weight:900;font-size:31px;color:var(--bright)">$'+top.close.toLocaleString(undefined,{minimumFractionDigits:2})+'</div><div class="statl">Last close</div></div>'+
   '</div>'+
-  '<div style="font-style:italic;font-size:12px;color:#8a93a3;margin-top:14px">Honest read: out-of-sample, the #1-ranked name popped +'+D.target_pct+'% about <b>'+hitTxt+'</b> of days — '+liftTxt+' better than chance, but it MISSES most days. Size for that, never bet the farm on one signal.</div>';
+  '<div style="font-family:Cormorant Garamond,serif;font-style:italic;font-size:13px;color:var(--mut);margin-top:15px">Honest read: out-of-sample, the №1 name climbed +'+D.target_pct+'% about <b style="color:var(--ink2)">'+hitTxt+'</b> of days — '+liftTxt+' better than chance, but it MISSES most days. Size for that; never wager the estate on one signal.</div>';
 
 // statline
 const stat = [
   {v: D.universe_n, l:'Universe'},
   {v: D.picks.length, l:'Long Names'},
-  {v: s.lift? s.lift.toFixed(1)+'x':'—', l:'Lift vs base', red:true},
+  {v: s.lift? s.lift.toFixed(1)+'×':'—', l:'Lift vs base', gold:true},
   {v: pct(s.precision_at_k), l:'Hit rate (top-'+(s.k||5)+')'},
   {v: s.auc? s.auc.toFixed(3):'—', l:'OOS ROC-AUC'},
 ];
 document.getElementById('statline').innerHTML = stat.map((x,i)=>
-  '<div class="stat" style="'+(i==stat.length-1?'border-right:none':'')+(x.red?';background:rgba(210,75,64,.10)':'')+'">'+
-  '<div class="statv" style="'+(x.red?'color:#d24b40':'')+'">'+x.v+'</div><div class="statl">'+x.l+'</div></div>').join('');
+  '<div class="stat" style="'+(i==stat.length-1?'border-right:none':'')+(x.gold?';background:rgba(201,164,76,.09)':'')+'">'+
+  '<div class="statv" style="'+(x.gold?'color:var(--gold2)':'')+'">'+x.v+'</div><div class="statl">'+x.l+'</div></div>').join('');
 
 // book
 const earnBadge = p => {
   if (p.days_to_earnings==null) return '';
   const d = p.days_to_earnings;
   const hot = d>=0 && d<=10;
-  return '<span style="font-family:Oswald,sans-serif;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;margin-left:8px;border:1px solid '+(hot?'#d24b40':'#5a6472')+';color:'+(hot?'#d24b40':'#9fb0c4')+'">⚡ Earnings '+(d<=0?'today':'in '+d+'d')+'</span>';
+  return '<span style="font-family:Cinzel,serif;font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:1px 7px;margin-left:8px;border:1px solid '+(hot?'var(--gold)':'rgba(201,164,76,.35)')+';color:'+(hot?'var(--gold2)':'var(--mut)')+'">⚜ Earnings '+(d<=0?'today':'in '+d+'d')+'</span>';
 };
 const recTag = r => {
   if(!r) return '';
   const bull = (r.strongBuy||0)+(r.buy||0), bear=(r.sell||0)+(r.strongSell||0), tot=bull+bear+(r.hold||0)||1;
   const pc = Math.round(bull/tot*100);
-  return '<span style="font-size:11px;color:#8a93a3;margin-left:8px">'+pc+'% buy</span>';
+  return '<span style="font-family:Cormorant Garamond,serif;font-size:12.5px;color:var(--mut);margin-left:8px">'+pc+'% buy</span>';
 };
 document.getElementById('book').innerHTML = D.picks.map(p=>{
-  const name = p.name ? '<div style="font-size:12px;color:#c2cad6">'+p.name+(p.industry?' · '+p.industry:'')+earnBadge(p)+recTag(p.rec)+'</div>':'';
-  const head = p.headline ? '<div style="font-style:italic;font-size:11.5px;color:#8a93a3;margin-top:2px">“'+(p.news_url?'<a href="'+p.news_url+'" target="_blank" style="color:#8a93a3">'+p.headline+'</a>':p.headline)+'”</div>':'';
-  return '<tr><td style="font-family:Playfair Display,serif;font-weight:900;font-size:18px;vertical-align:top;padding-top:13px;'+
-  (p.rank==1?'color:#d24b40':'color:#9fb0c4')+'">'+p.rank+'</td>'+
+  const name = p.name ? '<div style="font-family:Cormorant Garamond,serif;font-size:13.5px;color:var(--ink2)">'+p.name+(p.industry?' · '+p.industry:'')+earnBadge(p)+recTag(p.rec)+'</div>':'';
+  const head = p.headline ? '<div style="font-family:Cormorant Garamond,serif;font-style:italic;font-size:12.5px;color:var(--mut);margin-top:3px">“'+(p.news_url?'<a href="'+p.news_url+'" target="_blank">'+p.headline+'</a>':p.headline)+'”</div>':'';
+  return '<tr><td style="font-family:Playfair Display,serif;font-weight:900;font-size:19px;vertical-align:top;padding-top:13px;'+
+  (p.rank==1?'color:var(--gold)':'color:var(--mut2)')+'">'+p.rank+'</td>'+
   '<td><span class="tk">'+p.ticker+'</span><span class="lead">'+p.lead+'</span>'+name+head+'</td>'+
-  '<td style="text-align:right;vertical-align:top;padding-top:13px">'+p.close.toLocaleString(undefined,{minimumFractionDigits:2})+'</td>'+
-  '<td style="vertical-align:top;padding-top:13px"><div style="display:flex;align-items:center;justify-content:flex-end;gap:9px">'+
+  '<td style="text-align:right;vertical-align:top;padding-top:14px;color:var(--ink)">'+p.close.toLocaleString(undefined,{minimumFractionDigits:2})+'</td>'+
+  '<td style="vertical-align:top;padding-top:14px"><div style="display:flex;align-items:center;justify-content:flex-end;gap:9px">'+
   '<div class="bar"><div class="barf" style="width:'+Math.round(p.score*100)+'%"></div></div>'+
-  '<span style="font-weight:700;min-width:46px;text-align:right">'+p.score.toFixed(3)+'</span></div></td>'+
-  '<td style="text-align:right;color:#9fb0c4;vertical-align:top;padding-top:13px">'+p.pct.toFixed(0)+'</td></tr>';
+  '<span style="font-weight:700;min-width:46px;text-align:right;color:var(--bright)">'+p.score.toFixed(3)+'</span></div></td>'+
+  '<td style="text-align:right;color:var(--mut2);vertical-align:top;padding-top:14px">'+p.pct.toFixed(0)+'</td></tr>';
 }).join('');
 
 // telemetry
 const tel = D.telemetry || [];
 document.getElementById('telem').innerHTML = tel.length ? tel.map(t=>{
-  const up = t.chg>=0, c = up?'#9fb0c4':'#d24b40';
-  return '<div style="padding:0 18px;border-left:1px solid rgba(233,237,243,.22)">'+
-  '<div style="font-family:Oswald,sans-serif;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a93a3">'+t.sym+'</div>'+
-  '<div style="display:flex;align-items:baseline;gap:9px;margin-top:5px"><span style="font-size:16px;color:#e9edf3">'+t.px.toLocaleString()+'</span>'+
+  const up = t.chg>=0, c = up?'var(--sage)':'var(--ox)';
+  return '<div style="padding:0 18px;border-left:1px solid rgba(201,164,76,.22)">'+
+  '<div style="font-family:Cinzel,serif;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)">'+t.sym+'</div>'+
+  '<div style="display:flex;align-items:baseline;gap:9px;margin-top:6px"><span style="font-size:17px;color:var(--ink)">'+t.px.toLocaleString()+'</span>'+
   '<span style="font-weight:700;font-size:13px;color:'+c+'">'+(up?'+':'')+t.chg.toFixed(2)+'%</span></div></div>';
-}).join('') : '<div style="color:#8a93a3;font-style:italic;padding-left:18px">telemetry unavailable (rate-limited)</div>';
+}).join('') : '<div style="color:var(--mut);font-style:italic;padding-left:18px">telemetry unavailable (rate-limited)</div>';
 
 // shap
 const mx = Math.max(...D.shap.map(r=>Math.abs(r.v)), 1e-6);
 document.getElementById('shap').innerHTML = D.shap.map(r=>{
-  const c = r.v>=0 ? '#e9edf3' : '#d24b40';
+  const c = r.v>=0 ? 'var(--gold2)' : 'var(--ox)';
   return '<div style="display:grid;grid-template-columns:96px 1fr 48px;align-items:center;gap:8px;padding:5px 0">'+
-  '<span style="font-size:12px;color:#c2cad6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+r.f+'</span>'+
-  '<div style="height:9px;background:rgba(233,237,243,.1)"><div style="height:100%;width:'+Math.round(Math.abs(r.v)/mx*100)+'%;background:'+c+'"></div></div>'+
+  '<span style="font-family:Cormorant Garamond,serif;font-size:13px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+r.f+'</span>'+
+  '<div style="height:8px;background:rgba(201,164,76,.12)"><div style="height:100%;width:'+Math.round(Math.abs(r.v)/mx*100)+'%;background:'+c+'"></div></div>'+
   '<span style="font-weight:700;font-size:11.5px;text-align:right;color:'+c+'">'+(r.v>=0?'+':'')+r.v.toFixed(3)+'</span></div>';
 }).join('');
 
@@ -351,9 +386,9 @@ document.getElementById('shap').innerHTML = D.shap.map(r=>{
 const cv = s.curve || [];
 const cmax = Math.max(...cv.map(c=>c.precision), 1e-6);
 document.getElementById('curve').innerHTML = cv.map(c=>
-  '<div style="display:grid;grid-template-columns:64px 1fr 52px;align-items:center;gap:8px;padding:4px 0">'+
-  '<span style="font-size:12px;color:#c2cad6">top-'+c.k+'/day</span>'+
-  '<div style="height:9px;background:rgba(233,237,243,.1)"><div style="height:100%;width:'+Math.round(c.precision/cmax*100)+'%;background:#9fb0c4"></div></div>'+
-  '<span style="font-weight:700;font-size:11.5px;text-align:right">'+(c.precision*100).toFixed(1)+'%</span></div>').join('');
+  '<div style="display:grid;grid-template-columns:64px 1fr 52px;align-items:center;gap:8px;padding:5px 0">'+
+  '<span style="font-family:Cormorant Garamond,serif;font-size:13px;color:var(--ink2)">top-'+c.k+'/day</span>'+
+  '<div style="height:8px;background:rgba(201,164,76,.12)"><div style="height:100%;width:'+Math.round(c.precision/cmax*100)+'%;background:linear-gradient(90deg,var(--gold),var(--gold2))"></div></div>'+
+  '<span style="font-weight:700;font-size:11.5px;text-align:right;color:var(--bright)">'+(c.precision*100).toFixed(1)+'%</span></div>').join('');
 </script>
 </body></html>"""

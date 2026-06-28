@@ -14,10 +14,18 @@ for _d in (RAW_DIR, DATASET_DIR, MODEL_DIR, REPORT_DIR):
 
 # ---- The prediction target -------------------------------------------------
 # Decision is made at the CLOSE of day t using only information available then.
-# Label y = 1 if the NEXT trading day's intraday HIGH reaches at least
-#   Close_t * (1 + TARGET_MOVE).  i.e. "tomorrow this stock pops >= 8% above
-#   where it closed today, at some point during the day."
+# We then act at NEXT day's OPEN.
 TARGET_MOVE = 0.08
+
+# TARGET_MODE controls what "a win" means:
+#   "high_vs_open"  -> y=1 if  High_{t+1} >= Open_{t+1} * (1 + TARGET_MOVE)
+#       i.e. AFTER you buy at the open, the stock climbs >= 8% intraday that day.
+#       This is the TRADEABLE goal: buy at open, place a +8% limit, it fills when
+#       the stock rises 8% during the day. It explicitly EXCLUDES overnight gaps
+#       (a stock that opened already up doesn't count unless it keeps climbing).
+#   "high_vs_close" -> y=1 if  High_{t+1} >= Close_t * (1 + TARGET_MOVE)
+#       includes the un-tradeable overnight gap. Kept only for comparison.
+TARGET_MODE = "high_vs_open"
 
 # Minimums to keep the universe tradeable and the labels meaningful.
 MIN_PRICE = 1.50          # ignore sub-$1.50 names (data is garbage, hard to trade)
