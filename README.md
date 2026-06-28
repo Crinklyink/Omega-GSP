@@ -1,5 +1,6 @@
 # GSP - ML Intraday Pop Ranker
-      "The stock market is solvable through machine learning."
+<p align="center">"The stock market is solvable through machine learning."</p>
+
 <p align="center">
   <img
     src="https://media1.tenor.com/m/L83Vfm7Rb3oAAAAd/%E0%B8%9E%E0%B8%B5%E0%B9%88%E0%B8%8B%E0%B8%B5%E0%B9%8A%E0%B8%94-opztv.gif"
