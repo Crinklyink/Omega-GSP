@@ -1,4 +1,4 @@
-# gsp - ML Intraday Pop Ranker
+# GSP - ML Intraday Pop Ranker
 
 <p align="center">
   <img
