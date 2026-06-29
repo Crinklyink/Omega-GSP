@@ -30,11 +30,13 @@ def make_labels(df: pd.DataFrame) -> pd.DataFrame:
     high_next = df["High"].shift(-1)
     open_next = df["Open"].shift(-1)
     close_next = df["Close"].shift(-1)
+    low_next = df["Low"].shift(-1)
 
     out = pd.DataFrame(index=df.index)
     out["fwd_high_ret"] = high_next / close_t - 1.0
     out["fwd_open_ret"] = open_next / close_t - 1.0
     out["fwd_close_ret"] = close_next / close_t - 1.0
+    out["fwd_low_ret"] = low_next / close_t - 1.0  # next-day low (for stop-loss sim)
 
     if TARGET_MODE == "high_vs_open":
         # +8% from the OPEN, intraday (tradeable, excludes the gap).

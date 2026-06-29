@@ -28,7 +28,7 @@ TARGET_MOVE = 0.08
 TARGET_MODE = "high_vs_open"
 
 # Minimums to keep the universe tradeable and the labels meaningful.
-MIN_PRICE = 1.50          # ignore sub-$1.50 names (data is garbage, hard to trade)
+MIN_PRICE = 15.00         # drop penny/low-priced names (< $15): noisy data, hard to trade
 MIN_DOLLAR_VOLUME = 1_000_000   # 20d avg dollar volume floor
 
 # ---- Data ------------------------------------------------------------------

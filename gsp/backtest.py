@@ -92,28 +92,42 @@ def precision_by_threshold(preds: pd.DataFrame, thresholds=(0.5, 0.7, 0.8, 0.9, 
     return out
 
 
-def simulate_strategy(preds: pd.DataFrame, k: int = TOP_K, cost_bps: float = 10.0) -> dict:
-    """Buy top-K at next open, +8% limit else exit at close. Equal weight per day."""
+def simulate_strategy(preds: pd.DataFrame, k: int = TOP_K, cost_bps: float = 10.0,
+                      stop: float | None = None) -> dict:
+    """Buy top-K at next open, +TARGET_MOVE limit, else exit at close. Equal weight.
+
+    If `stop` is set (e.g. 0.03), also place a stop-loss `stop` below the open. When
+    the next-day LOW pierces the stop we exit at -stop. Intraday order of stop vs
+    target is unknown from daily bars, so if BOTH are touched we conservatively
+    assume the stop filled first (a lower bound on the strategy's true P&L)."""
     df = preds.reset_index()
     cost = cost_bps / 1e4
     daily_returns = []
     n_trades = 0
     n_hit_target = 0
+    n_stopped = 0
     trade_rets = []
+    has_low = "fwd_low_ret" in df.columns
 
     for date, day in df.groupby("date"):
         top = day.nlargest(k, "score")
         if top.empty:
             continue
-        # entry at next open (relative to close_t), target +8% above THAT open.
-        entry_mult = 1.0 + top["fwd_open_ret"].to_numpy()     # open / close_t
+        # entry at next open (relative to close_t), target +X% above THAT open.
+        entry = 1.0 + top["fwd_open_ret"].to_numpy()          # open / close_t
         high_mult = 1.0 + top["fwd_high_ret"].to_numpy()      # high / close_t
         close_mult = 1.0 + top["fwd_close_ret"].to_numpy()    # close / close_t
-        entry = entry_mult
         target = entry * (1.0 + TARGET_MOVE)
         hit = high_mult >= target
-        # realized gross return per trade, entered at open
-        realized = np.where(hit, TARGET_MOVE, close_mult / entry - 1.0)
+        if stop is not None and has_low:
+            low_mult = 1.0 + top["fwd_low_ret"].to_numpy()    # low / close_t
+            stopped = low_mult <= entry * (1.0 - stop)
+            # conservative: stop first if both touched
+            realized = np.where(stopped, -stop,
+                                np.where(hit, TARGET_MOVE, close_mult / entry - 1.0))
+            n_stopped += int(stopped.sum())
+        else:
+            realized = np.where(hit, TARGET_MOVE, close_mult / entry - 1.0)
         realized = realized - cost  # round-trip cost
         trade_rets.extend(realized.tolist())
         n_trades += len(realized)
@@ -133,6 +147,8 @@ def simulate_strategy(preds: pd.DataFrame, k: int = TOP_K, cost_bps: float = 10.
     return {
         "k": k,
         "cost_bps": cost_bps,
+        "stop": stop,
+        "stop_rate": n_stopped / max(n_trades, 1),
         "n_trading_days": len(dr),
         "n_trades": n_trades,
         "hit_8pct_rate": n_hit_target / max(n_trades, 1),

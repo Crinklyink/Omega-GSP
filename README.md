@@ -233,7 +233,7 @@ Important knobs:
 
 - `TARGET_MOVE`: default `0.08` for an 8% target.
 - `TARGET_MODE`: default `"high_vs_open"`, the tradeable intraday target.
-- `MIN_PRICE`: default `1.50`.
+- `MIN_PRICE`: default `15.00` — excludes penny/low-priced names (< $15) from training.
 - `MIN_DOLLAR_VOLUME`: default `1_000_000`.
 - `TOP_K`: default number of names used in strategy simulation.
 - `WALKFORWARD_TRAIN_YEARS`, `WALKFORWARD_TEST_MONTHS`, `EMBARGO_DAYS`: validation

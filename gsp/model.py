@@ -89,7 +89,9 @@ def walk_forward(dataset: pd.DataFrame, params: dict | None = None,
 
         booster = train_lgb(train, feat_cols, params)
         p = booster.predict(test[feat_cols], num_iteration=booster.best_iteration)
-        res = test[["y", "fwd_high_ret", "fwd_open_ret", "fwd_close_ret"]].copy()
+        fwd = [c for c in ("fwd_high_ret", "fwd_open_ret", "fwd_close_ret",
+                           "fwd_low_ret") if c in test.columns]
+        res = test[["y"] + fwd].copy()
         res["score"] = p
         res["fold"] = fold
         preds.append(res)
