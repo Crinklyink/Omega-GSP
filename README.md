@@ -1,4 +1,5 @@
-# gsp - ML Intraday Pop Ranker
+# GSP - ML Intraday Pop Ranker
+<p align="center">"The stock market is solvable through machine learning." -Crinklyink</p>
 
 <p align="center">
   <img
