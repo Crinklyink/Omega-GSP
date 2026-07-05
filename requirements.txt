@@ -10,3 +10,4 @@ pyarrow==24.0.0
 joblib==1.5.3
 tqdm==4.68.3
 lxml==6.1.1
+cryptography==49.0.0   # encrypts the published dashboard when PAGES_PASSWORD is set
