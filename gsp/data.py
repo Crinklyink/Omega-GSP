@@ -28,9 +28,27 @@ def load_cached(ticker: str) -> pd.DataFrame | None:
     if not p.exists():
         return None
     try:
-        return pd.read_parquet(p)
+        # Sanitize on load too, so caches downloaded before the filter existed
+        # get the same treatment without a re-download.
+        return _sanitize_bars(pd.read_parquet(p))
     except Exception:  # noqa: BLE001
         return None
+
+
+def _sanitize_bars(df: pd.DataFrame) -> pd.DataFrame:
+    """Neutralize obviously bogus High prints. A fake high creates a fake +8%
+    label, which poisons training AND flatters the backtest. Criterion is strict
+    on purpose — a High more than 3x BOTH the candle body top and the prior
+    close is a data error, not a halted runner (those close near their highs).
+    We clip to the body top rather than dropping the row, so day-adjacency (and
+    therefore next-session labels) is preserved."""
+    body_hi = df[["Open", "Close"]].max(axis=1)
+    prev_c = df["Close"].shift(1)
+    absurd = (df["High"] > 3.0 * body_hi) & (df["High"] > 3.0 * prev_c)
+    if absurd.any():
+        df = df.copy()
+        df.loc[absurd, "High"] = body_hi[absurd]
+    return df
 
 
 def _clean(df: pd.DataFrame) -> pd.DataFrame:
@@ -40,7 +58,7 @@ def _clean(df: pd.DataFrame) -> pd.DataFrame:
     df = df[COLUMNS]
     df = df.dropna(subset=["Open", "High", "Low", "Close"])
     df = df[df["Volume"].fillna(0) >= 0]
-    return df
+    return _sanitize_bars(df)
 
 
 def _download_batch(tickers: list[str], start: str) -> dict[str, pd.DataFrame]:

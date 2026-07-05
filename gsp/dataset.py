@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from .config import (DATASET_DIR, MIN_PRICE, MIN_DOLLAR_VOLUME)
 from .data import load_cached, load_market
-from .features import make_features, market_features
+from .features import make_features, market_features, add_cross_sectional
 from .labels import make_labels
 
 DATASET_PATH = DATASET_DIR / "dataset.parquet"
@@ -54,9 +54,17 @@ def build_dataset(tickers: list[str], save: bool = True) -> pd.DataFrame:
         raise RuntimeError("No data assembled — did you run `download` first?")
 
     full = pd.concat(frames).reset_index().set_index(["date", "ticker"]).sort_index()
+    # Cross-sectional (per-day, universe-relative) features. Point-in-time safe:
+    # each day's ranks use only that day's values. scan.py applies the same
+    # transform to its live one-day panel.
+    print("[dataset] adding cross-sectional features ...")
+    full = add_cross_sectional(full)
     # Drop rows whose label is undefined (the very last bar per ticker) for training,
     # but keep them out here — scan.py recomputes live rows separately.
     full = full.replace([np.inf, -np.inf], np.nan)
+    # float32 is plenty for returns/ratios and halves the panel's memory footprint.
+    f64 = full.select_dtypes(include="float64").columns
+    full[f64] = full[f64].astype("float32")
 
     if save:
         full.reset_index().to_parquet(DATASET_PATH)

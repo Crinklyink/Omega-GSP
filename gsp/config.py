@@ -32,7 +32,7 @@ MIN_PRICE = 15.00         # drop penny/low-priced names (< $15): noisy data, har
 MIN_DOLLAR_VOLUME = 1_000_000   # 20d avg dollar volume floor
 
 # ---- Data ------------------------------------------------------------------
-HISTORY_START = "2015-01-01"   # how far back to pull
+HISTORY_START = "2012-01-01"   # how far back to pull (more history = more folds)
 MARKET_INDEX = "SPY"           # used for market-regime / relative features
 
 # ---- Walk-forward evaluation ----------------------------------------------
@@ -44,9 +44,9 @@ EMBARGO_DAYS = 2   # gap between train end and test start to avoid label leakage
 # ---- Model defaults (LightGBM) --------------------------------------------
 LGB_PARAMS = {
     "objective": "binary",
-    "metric": "auc",
+    "metric": "average_precision",   # PR-AUC: the right early-stop metric for a ~4% positive class
     "boosting_type": "gbdt",
-    "learning_rate": 0.03,
+    "learning_rate": 0.02,
     "num_leaves": 63,
     "max_depth": -1,
     "min_child_samples": 200,
@@ -58,8 +58,12 @@ LGB_PARAMS = {
     "n_jobs": -1,
     "verbosity": -1,
 }
-NUM_BOOST_ROUND = 2000
-EARLY_STOPPING = 100
+NUM_BOOST_ROUND = 4000
+EARLY_STOPPING = 200
+
+# Seed-bagged ensemble size used by `evaluate` and `train` (optuna trials use 1
+# model per trial so the 12h budget buys more trials; the params transfer).
+ENSEMBLE_N = 5
 
 # How many names we "buy" per day when simulating the strategy.
 TOP_K = 5

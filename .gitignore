@@ -9,3 +9,8 @@ __pycache__/
 .env
 *.env
 secrets.*
+# gsp/secrets.py is safe to commit: it only READS the gitignored .env,
+# and a clone without it silently loses dashboard enrichment.
+!gsp/secrets.py
+*.log
+# the published dashboard (docs/index.html) IS committed — Pages serves it

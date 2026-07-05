@@ -5,9 +5,14 @@ labels) and the model STILL shows skill, then information about the label is
 leaking through the features/splits — i.e. a bug. A clean pipeline must collapse
 to ROC-AUC ~0.50 and lift ~1.0x on shuffled labels.
 
-Run:  python scripts/leakage_test.py
+Run:  python scripts/leakage_test.py [--sample-frac 0.35]
+
+--sample-frac trains on a random subset of tickers: a lookahead bug leaks on any
+subset, so sampling keeps the audit honest while making it much faster on the
+broad universe.
 """
 from __future__ import annotations
+import argparse
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -18,9 +23,19 @@ from gsp.dataset import load_dataset
 from gsp.model import walk_forward
 from gsp.backtest import ranking_metrics, precision_at_k
 
+ap = argparse.ArgumentParser()
+ap.add_argument("--sample-frac", type=float, default=1.0)
+args = ap.parse_args()
+
 rng = np.random.default_rng(0)
 
 df = load_dataset().dropna(subset=["y"]).copy()
+if args.sample_frac < 1.0:
+    tickers = df.index.get_level_values("ticker").unique().to_numpy()
+    keep = set(rng.choice(tickers, size=max(50, int(len(tickers) * args.sample_frac)),
+                          replace=False).tolist())
+    df = df[df.index.get_level_values("ticker").isin(keep)]
+    print(f"[leakage] sampled {len(keep)} tickers -> {len(df):,} rows")
 
 # --- Feature-leakage audit (catches what label-shuffling CANNOT) ----------
 # Shuffling y breaks the link between a target-derived feature and the SHUFFLED

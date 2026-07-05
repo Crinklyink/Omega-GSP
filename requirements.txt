@@ -1,10 +1,12 @@
-numpy
-pandas
-scikit-learn
-lightgbm
-yfinance
-optuna
-pyarrow
-joblib
-tqdm
-lxml
+# Pinned to the versions the 2026-07 rebuild was validated with.
+# (Loosen deliberately, then rerun scripts/selftest.py + scripts/leakage_test.py.)
+numpy==2.5.0
+pandas==3.0.3
+scikit-learn==1.9.0
+lightgbm==4.6.0
+yfinance==1.5.1
+optuna==4.9.0
+pyarrow==24.0.0
+joblib==1.5.3
+tqdm==4.68.3
+lxml==6.1.1
