@@ -25,6 +25,12 @@ target is configured in [gsp/config.py](gsp/config.py).
 This is a research tool, not financial advice. It finds names likely to move; it
 does not yet provide a complete profitable trading system.
 
+> **Live ledger:** the latest scan's dashboard is published at
+> <https://crinklyink.github.io/Omega-GSP/> — `cli.py daily` and `cli.py report`
+> push it automatically after every scan (opt out with `--no-publish`).
+> Only the self-contained dashboard is published; data, models, and the paper
+> ledger stay local.
+>
 > Deep technical record — how the model was built, trained, validated, and
 > what the experiments proved: [docs/MODEL_NOTES.md](docs/MODEL_NOTES.md)
 
