@@ -79,6 +79,14 @@ def settle() -> int:
     pend = led[led["status"] == "pending"]
     if pend.empty:
         return 0
+    # pandas 3.0 refuses to place a bool/Timestamp into a float64 column (the
+    # outcome columns start life as all-NaN float64). Widen them to object so
+    # the per-row assignment below can hold mixed types; save_ledger writes CSV
+    # and load_ledger re-parses them back to float/datetime on the next read.
+    OUT_COLS = ["status", "entry_date", "entry_open", "day_high", "day_low",
+                "day_close", "hit_target", "ret_limit", "ret_stop3", "ret_stop5"]
+    for c in OUT_COLS:
+        led[c] = led[c].astype(object)
     n_settled = 0
     for i, r in pend.iterrows():
         raw = load_cached(str(r["ticker"]))
@@ -101,10 +109,8 @@ def settle() -> int:
         for s_name, s in (("ret_stop3", 0.03), ("ret_stop5", 0.05)):
             stopped = l <= o * (1.0 - s)
             outs[s_name] = -s if stopped else ret_limit
-        led.loc[i, ["status", "entry_date", "entry_open", "day_high", "day_low",
-                    "day_close", "hit_target", "ret_limit", "ret_stop3",
-                    "ret_stop5"]] = [
-            "settled", after.index[0], o, h, l, c, bool(hit),
+        led.loc[i, OUT_COLS] = [
+            "settled", after.index[0], o, h, l, c, float(hit),
             outs["ret_limit"], outs["ret_stop3"], outs["ret_stop5"]]
         n_settled += 1
     if n_settled:
