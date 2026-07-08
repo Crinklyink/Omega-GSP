@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from .config import (DATASET_DIR, MIN_PRICE, MIN_DOLLAR_VOLUME)
+from .config import (DATASET_DIR, MIN_PRICE, MIN_DOLLAR_VOLUME, MAX_ATR_PCT)
 from .data import load_cached, load_market
 from .features import make_features, market_features, add_cross_sectional
 from .labels import make_labels
@@ -32,6 +32,10 @@ def build_ticker_frame(ticker: str, mkt_feats: pd.DataFrame | None) -> pd.DataFr
     dollar_vol = (raw["Close"] * raw["Volume"]).rolling(20, min_periods=20).mean()
     keep = (raw["Close"] >= MIN_PRICE) & (dollar_vol >= MIN_DOLLAR_VOLUME)
     df = df[keep.reindex(df.index).fillna(False)]
+    # Volatility ceiling: hyper-volatile names are excluded from training so the
+    # model never learns to love them. scan.py applies the identical cap live.
+    if "atr14_pct" in df.columns:
+        df = df[df["atr14_pct"] <= MAX_ATR_PCT]
 
     df["ticker"] = ticker
     df.index.name = "date"

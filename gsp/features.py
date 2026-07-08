@@ -14,7 +14,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .config import TARGET_MOVE
+from .config import TARGET_MOVE, TARGET_MODE, MAX_DIP
 
 
 def _rsi(close: pd.Series, n: int = 14) -> pd.Series:
@@ -145,11 +145,17 @@ def make_features(df: pd.DataFrame, market_feats: pd.DataFrame | None = None) ->
     f["lower_shadow_avg_10"] = lower_shadow.rolling(10, min_periods=10).mean()
 
     # --- Label-aligned intraday pop history --------------------------------
-    # The label asks: does High_{t+1} reach Open_{t+1}*(1+TARGET_MOVE)? The best
-    # single predictor of that is how often THIS name has done exactly that in
-    # the past. hi_vs_open on day t uses only day-t's own bar -> point-in-time.
+    # The best single predictor of the label is how often THIS name has done
+    # exactly what the label asks, in the past. hi_vs_open/lo_vs_open on day t
+    # use only day-t's own bar -> point-in-time. Under "clean_pop" the event is
+    # dip-conditioned to match the label: reached +TARGET_MOVE from the open
+    # WITHOUT trading more than MAX_DIP below it.
     hi_vs_open = h / o.replace(0.0, np.nan) - 1.0
-    pop_event = (hi_vs_open >= TARGET_MOVE).astype("float32")
+    lo_vs_open = l / o.replace(0.0, np.nan) - 1.0
+    pop_event = (hi_vs_open >= TARGET_MOVE)
+    if TARGET_MODE == "clean_pop":
+        pop_event = pop_event & (lo_vs_open >= -MAX_DIP)
+    pop_event = pop_event.astype("float32")
     f["hi_open_today"] = hi_vs_open
     f["pop_ho_20"] = pop_event.rolling(20, min_periods=20).mean()
     f["pop_ho_60"] = pop_event.rolling(60, min_periods=60).mean()

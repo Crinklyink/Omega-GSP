@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import lightgbm as lgb
 
-from .config import MODEL_DIR, MIN_PRICE, MIN_DOLLAR_VOLUME
+from .config import MODEL_DIR, MIN_PRICE, MIN_DOLLAR_VOLUME, MAX_ATR_PCT
 from .data import load_cached, load_market
 from .features import make_features, market_features, add_cross_sectional
 
@@ -82,11 +82,13 @@ def build_live_panel(tickers: list[str], mkt_feats) -> pd.DataFrame:
     # features so live ranks see the same universe shape training saw.
     n0 = len(df)
     dollar_vol = np.expm1(df["log_dollar_vol_20"])
-    df = df[(df["close"] >= MIN_PRICE) & (dollar_vol >= MIN_DOLLAR_VOLUME)]
+    df = df[(df["close"] >= MIN_PRICE) & (dollar_vol >= MIN_DOLLAR_VOLUME)
+            & (df["atr14_pct"] <= MAX_ATR_PCT)]
     if df.empty:
-        raise RuntimeError("No candidates pass the price/liquidity filter.")
+        raise RuntimeError("No candidates pass the price/liquidity/volatility filter.")
     print(f"[scan] {len(df)} of {n0} names pass the tradeability filter "
-          f"(close >= ${MIN_PRICE:.0f}, ADV >= ${MIN_DOLLAR_VOLUME / 1e6:.0f}M)")
+          f"(close >= ${MIN_PRICE:.0f}, ADV >= ${MIN_DOLLAR_VOLUME / 1e6:.0f}M, "
+          f"ATR <= {MAX_ATR_PCT:.0%})")
     panel = df.rename(columns={"asof": "date"}).set_index(["date", "ticker"]).sort_index()
     panel = add_cross_sectional(panel)
     df = panel.reset_index().rename(columns={"date": "asof"})

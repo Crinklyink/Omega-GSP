@@ -71,9 +71,26 @@ from gsp.labels import make_labels
 lb = make_labels(df)
 t = 100
 o1, h1, c0 = df["Open"].iloc[t + 1], df["High"].iloc[t + 1], df["Close"].iloc[t]
-from gsp.config import TARGET_MOVE
+l1 = df["Low"].iloc[t + 1]
+from gsp.config import TARGET_MOVE, TARGET_MODE, MAX_DIP
+expected = h1 >= o1 * (1 + TARGET_MOVE)
+if TARGET_MODE == "clean_pop":
+    expected = expected and (l1 >= o1 * (1 - MAX_DIP))
 check("y(t) is defined by day t+1's bar",
-      bool(lb["y"].iloc[t]) == bool(h1 >= o1 * (1 + TARGET_MOVE)))
+      bool(lb["y"].iloc[t]) == bool(expected))
+if TARGET_MODE == "clean_pop":
+    # a pop that dips below -MAX_DIP first must NOT count as a win
+    dirty = pd.DataFrame({
+        "Open":  [10.0, 10.0, 10.0],
+        "High":  [10.1, 11.0, 11.0],   # day1: +10% pop...
+        "Low":   [9.9,   9.0,  9.9],   # ...but dipped -10% -> dirty
+        "Close": [10.0, 10.5, 10.5],
+    }, index=pd.date_range("2024-01-01", periods=3))
+    dl = make_labels(dirty)
+    check("dirty pop (dip < -MAX_DIP) labeled 0", dl["y"].iloc[0] == 0.0)
+    clean = dirty.copy(); clean["Low"] = [9.9, 9.7, 9.9]   # dip only -3%
+    cl = make_labels(clean)
+    check("clean pop (dip within MAX_DIP) labeled 1", cl["y"].iloc[0] == 1.0)
 check("fwd_high_ret(t) = High(t+1)/Close(t)-1",
       np.isclose(lb["fwd_high_ret"].iloc[t], h1 / c0 - 1.0))
 check("last row's label is NaN (no t+1)", pd.isna(lb["y"].iloc[-1]))

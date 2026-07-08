@@ -1,13 +1,15 @@
 """Label construction.
 
 Decision time = close of day t. We act at the OPEN of day t+1. The default target
-(TARGET_MODE="high_vs_open") asks the TRADEABLE question:
+(TARGET_MODE="clean_pop") asks the SAFE tradeable question:
 
     y = 1  iff  High_{t+1} >= Open_{t+1} * (1 + TARGET_MOVE)
+           AND  Low_{t+1}  >= Open_{t+1} * (1 - MAX_DIP)
 
-i.e. after you buy at tomorrow's open, does the stock climb >= 8% intraday that day
-(so a +8% limit fills)? This deliberately excludes the overnight gap — a name that
-opened already up doesn't count unless it keeps climbing.
+i.e. after you buy at tomorrow's open, the stock climbs >= 8% intraday (so a +8%
+limit fills) WITHOUT ever trading more than MAX_DIP below your entry — a pop you
+can hold with a stop-loss underneath. This deliberately excludes the overnight
+gap — a name that opened already up doesn't count unless it keeps climbing.
 
 We also stash forward returns used only by the backtest (NEVER features):
 
@@ -21,7 +23,7 @@ training but is exactly the row we score live in scan.py.
 from __future__ import annotations
 import pandas as pd
 
-from .config import TARGET_MOVE, TARGET_MODE
+from .config import TARGET_MOVE, TARGET_MODE, MAX_DIP
 
 
 def make_labels(df: pd.DataFrame) -> pd.DataFrame:
@@ -38,7 +40,15 @@ def make_labels(df: pd.DataFrame) -> pd.DataFrame:
     out["fwd_close_ret"] = close_next / close_t - 1.0
     out["fwd_low_ret"] = low_next / close_t - 1.0  # next-day low (for stop-loss sim)
 
-    if TARGET_MODE == "high_vs_open":
+    if TARGET_MODE == "clean_pop":
+        # +8% from the OPEN without ever dipping more than MAX_DIP below it.
+        # Rewards pops you can hold with a stop-loss under the entry; punishes
+        # the spike-after-a-crash paths that made the old picks so volatile.
+        hit = high_next >= open_next * (1.0 + TARGET_MOVE)
+        clean = low_next >= open_next * (1.0 - MAX_DIP)
+        out["y"] = (hit & clean).astype("float32")
+        out.loc[high_next.isna() | open_next.isna() | low_next.isna(), "y"] = pd.NA
+    elif TARGET_MODE == "high_vs_open":
         # +8% from the OPEN, intraday (tradeable, excludes the gap).
         out["y"] = (high_next >= open_next * (1.0 + TARGET_MOVE)).astype("float32")
         out.loc[high_next.isna() | open_next.isna(), "y"] = pd.NA

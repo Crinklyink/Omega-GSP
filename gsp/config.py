@@ -18,18 +18,26 @@ for _d in (RAW_DIR, DATASET_DIR, MODEL_DIR, REPORT_DIR):
 TARGET_MOVE = 0.08
 
 # TARGET_MODE controls what "a win" means:
+#   "clean_pop"     -> y=1 if  High_{t+1} >= Open_{t+1} * (1 + TARGET_MOVE)
+#                      AND     Low_{t+1}  >= Open_{t+1} * (1 - MAX_DIP)
+#       The SAFE tradeable goal: buy at open, place a +8% limit, and the pop
+#       arrives WITHOUT the stock ever dipping more than MAX_DIP below your
+#       entry first. Rewarding any +8% touch (the old mode) selects the most
+#       volatile names in the market — dip-conditioning the label teaches the
+#       model to find pops you can hold through with a stop-loss underneath.
 #   "high_vs_open"  -> y=1 if  High_{t+1} >= Open_{t+1} * (1 + TARGET_MOVE)
-#       i.e. AFTER you buy at the open, the stock climbs >= 8% intraday that day.
-#       This is the TRADEABLE goal: buy at open, place a +8% limit, it fills when
-#       the stock rises 8% during the day. It explicitly EXCLUDES overnight gaps
-#       (a stock that opened already up doesn't count unless it keeps climbing).
+#       ANY +8% touch counts, however ugly the path. Kept for comparison.
 #   "high_vs_close" -> y=1 if  High_{t+1} >= Close_t * (1 + TARGET_MOVE)
 #       includes the un-tradeable overnight gap. Kept only for comparison.
-TARGET_MODE = "high_vs_open"
+TARGET_MODE = "clean_pop"
+MAX_DIP = 0.04   # a "clean" pop never trades more than 4% below the entry open
 
 # Minimums to keep the universe tradeable and the labels meaningful.
 MIN_PRICE = 15.00         # drop penny/low-priced names (< $15): noisy data, hard to trade
-MIN_DOLLAR_VOLUME = 1_000_000   # 20d avg dollar volume floor
+MIN_DOLLAR_VOLUME = 10_000_000  # 20d avg dollar volume floor — real liquidity only
+# Volatility ceiling at decision time: names whose 14d ATR exceeds this fraction
+# of price are lottery tickets, not trades — excluded from training AND the scan.
+MAX_ATR_PCT = 0.08
 
 # ---- Data ------------------------------------------------------------------
 HISTORY_START = "2012-01-01"   # how far back to pull (more history = more folds)

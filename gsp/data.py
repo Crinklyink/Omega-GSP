@@ -88,12 +88,17 @@ def update_universe(tickers: list[str], batch_size: int = 50,
     """Download/refresh all tickers. Returns list of tickers that have data."""
     have = []
     todo = []
+    # Skip a ticker only if the cache already holds TODAY's (ET) bar. Anything
+    # older gets a full refetch — auto-adjusted prices can rescale the whole
+    # history on any split/dividend, so incremental appends aren't safe. (The
+    # old "within 4 days" skip silently served Monday's bars all week.) Run
+    # evening scans AFTER the close: an intraday run caches a partial bar,
+    # which self-heals on the next day's refetch.
+    today_et = pd.Timestamp.now(tz="America/New_York").date()
     for t in tickers:
         cached = load_cached(t) if incremental else None
         if cached is not None and not cached.empty:
-            last = cached.index.max()
-            # If we already have data within the last ~4 days, skip the refetch.
-            if (pd.Timestamp.utcnow().tz_localize(None) - last).days <= 4:
+            if cached.index.max().date() >= today_et:
                 have.append(t)
                 continue
         todo.append(t)
