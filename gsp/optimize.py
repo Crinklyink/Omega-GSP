@@ -51,8 +51,12 @@ def _suggest(trial: optuna.Trial) -> dict:
 
 
 def optimize(dataset, timeout_hours: float = 12.0, k: int = 1,
-             study_name: str = "gsp_p1_v2", sample_frac: float = 1.0,
+             study_name: str = "gsp_cp_v1", sample_frac: float = 1.0,
              holdout_months: int = 0) -> dict:
+    # Study names are tied to the LABEL ERA: trials scored on different labels
+    # can never share a leaderboard. "gsp_p1_v2" = the old any-touch +8% label;
+    # "gsp_cp_v1" = the clean_pop label (2026-07-08). Bump this whenever the
+    # target definition changes.
     """Hunt hyperparameters that maximize OUT-OF-SAMPLE precision@`k`. Default k=1:
     we optimize for the single best pick each day being a real +8% mover — exactly
     the 'I only care about the top 1' objective. A small precision@3 + PR-AUC bonus
