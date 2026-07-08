@@ -10,17 +10,21 @@
 </p>
 
 `gsp` is a leakage-aware research pipeline for ranking US stocks by the chance
-that they climb at least 8% from the next session's open during that same day.
+that they climb at least 8% from the next session's open during that same day —
+**without ever dipping more than 4% below that open first** (a "clean pop").
 
-The default target is the tradeable version:
+The default target is the safe tradeable version:
 
 ```text
-y = 1 if High[t+1] >= Open[t+1] * 1.08
+y = 1 if High[t+1] >= Open[t+1] * 1.08  AND  Low[t+1] >= Open[t+1] * 0.96
 ```
 
 That means the model scores stocks after today's close, assumes entry at
-tomorrow's open, and asks whether a +8% limit order would fill intraday. The
-target is configured in [gsp/config.py](gsp/config.py).
+tomorrow's open, and asks whether a +8% limit order would fill intraday while a
+stop-loss under the entry survives. Rewarding *any* +8% touch (the old target,
+kept as `TARGET_MODE="high_vs_open"`) mathematically selects the most volatile
+names in the market; dip-conditioning the label selects pops you can actually
+sit through. The target is configured in [gsp/config.py](gsp/config.py).
 
 This is a research tool, not financial advice. It finds names likely to move; it
 does not yet provide a complete profitable trading system.
@@ -43,46 +47,55 @@ The model's ranking skill is real in the saved out-of-sample report, but the
 naive strategy still loses money. That distinction is the most important thing
 in the repo.
 
-- Strong ranker: the best-scored names hit the +8% intraday target far more
-  often than the base rate (top pick: 53% of days at 27x the base rate).
+- Strong ranker: the best-scored names hit the clean +8% target far more often
+  than the base rate (top pick: 13.2% of days at 19.8x the 0.67% base rate).
 - Weak strategy: buying at the next open, taking +8% if hit, and otherwise
-  exiting at the close loses money after costs — and the 2026-07 experiments
-  below show WHY, which is more useful than the fact itself.
+  exiting at the close still loses a little after costs (-0.38%/trade; the old
+  any-touch target lost -0.97%) — and the 2026-07 experiments below show WHY,
+  which is more useful than the fact itself.
 - Practical next step: run the paper-trading ledger (`cli.py daily`) and let
   forward results, not backtests, have the final word.
 
-## Latest Saved Out-of-Sample Report (2026-07 rebuild)
+## Latest Saved Out-of-Sample Report (2026-07-08 "clean pop" retarget)
 
-Tuned 5-seed LightGBM ensemble (298-trial Optuna search), ~96 point-in-time
-features, 2012-2026 history, 5,150,780 out-of-sample rows across 46 embargoed
-walk-forward folds. From `models/last_report.json`.
+Tuned 5-seed LightGBM ensemble, ~96 point-in-time features, 2012-2026 history,
+4,165,623-row dataset / 3,618,434 out-of-sample rows across 46 embargoed
+walk-forward folds. Universe: close ≥ $15, ADV ≥ $10M, 14d ATR ≤ 8% of price.
+From `models/last_report.json`.
 
 | Metric | Value |
 | --- | ---: |
-| Base rate for +8% intraday target | 1.97% |
-| ROC-AUC | 0.920 |
-| PR-AUC | 0.231 |
-| Top-1 hit rate | 53.00% |
-| Top-1 lift over base rate | 27.0x |
-| Top-5 hit rate | 43.35% |
-| Top-5 lift over base rate | 22.1x |
-| Naive strategy avg trade return | -0.97% |
+| Base rate for the clean +8% target | 0.67% |
+| ROC-AUC | 0.877 |
+| PR-AUC | 0.051 |
+| Top-1 hit rate | 13.23% |
+| Top-1 lift over base rate | 19.8x |
+| Top-5 hit rate | 10.12% |
+| Top-5 lift over base rate | 15.1x |
+| Naive strategy avg trade return | -0.38% (win rate 46.4%) |
 | Naive strategy cost assumption | 25 bps round trip |
 
 Selectivity curve from the same report:
 
 | Picks per day | Hit rate | Lift |
 | ---: | ---: | ---: |
-| 1 | 53.00% | 27.0x |
-| 2 | 49.04% | 25.0x |
-| 3 | 46.72% | 23.8x |
-| 5 | 43.35% | 22.1x |
-| 10 | 37.70% | 19.2x |
+| 1 | 13.23% | 19.8x |
+| 2 | 12.06% | 18.0x |
+| 3 | 10.97% | 16.4x |
+| 5 | 10.12% | 15.1x |
+| 10 | 8.64% | 12.9x |
 
-The edge is stable year by year (top-1 hit rate 29% in 2015 rising to 58-69%
-in 2021-2026, with 14x-65x lift every single year), and the leakage suite —
-label shuffles, single-feature audit, and a truncation-invariance selftest —
-passes clean on the exact dataset behind these numbers.
+The edge is stable year by year (top-1 hit rate 7.3% in 2015 rising to 16-19%
+in 2024-2026, with 12x-47x lift every single year; 2026 YTD avg trade is
+~breakeven at +0.007%), and the leakage suite — label shuffles, single-feature
+audit, and a truncation-invariance selftest — passes clean on the exact dataset
+behind these numbers.
+
+Hit rates look smaller than the previous any-touch target's (53% top-1) because
+the event is 3x rarer and far harder: the pop must arrive without the dip. In
+exchange, picks moved from micro-cap lottery tickets to liquid names (first
+scan under the new target: DELL, MRNA, APP), and naive-strategy expectancy
+improved by ~0.6%/trade.
 
 ## What The 2026-07 Experiments Established
 
@@ -106,6 +119,13 @@ Conclusion: the trade construction itself (buy next open, +8% limit, exit at
 close, 25 bps) has negative expectancy across the whole liquid universe. No
 ranker fixes that; a different entry/exit structure might. That is the honest
 frontier of this project.
+
+The 2026-07-08 retarget acted on these findings from the label side: requiring
+the pop to arrive without a >4% dip (plus the $10M ADV floor and 8% ATR
+ceiling) moved naive expectancy from -0.97% to -0.38%/trade — still not
+positive on the full 2015-2026 history, but ~breakeven in 2026, with picks the
+stop-loss experiments above would no longer shake out. The paper ledger
+(`cli.py daily`) is now the arbiter.
 
 ## Why The Backtest Is Less Likely To Be Fake
 
@@ -228,13 +248,14 @@ immediately. Two optional add-ons:
 
 Run after the market close — the model decides on closing bars and its picks
 are for the NEXT session. The scan automatically applies the same
-tradeability filter the model was trained on (close ≥ $15, ADV ≥ $1M), so it
-never scores names outside its training distribution.
+tradeability filter the model was trained on (close ≥ $15, ADV ≥ $10M,
+14d ATR ≤ 8% of price), so it never scores names outside its training
+distribution.
 
 ```powershell
 # Recommended one-liner: refresh bars -> settle pending paper trades ->
-# scan -> log top-5 to the ledger -> print running forward stats
-.venv\Scripts\python.exe cli.py daily --universe file --min-exp-hit 0.4
+# scan -> log top-3 to the ledger -> print running forward stats
+.venv\Scripts\python.exe cli.py daily --universe file --top 3
 
 # Just the ranked list (no ledger logging)
 .venv\Scripts\python.exe cli.py scan --universe file --top 20
@@ -246,11 +267,14 @@ start reports\report.html
 
 Reading the output: `score` is the raw 0-1 signal; `exp_hit` is the honest
 column — the fraction of out-of-sample names in that score band that actually
-printed +8% intraday. `--min-exp-hit 0.4` enforces no-trade discipline: if
-nothing clears a 40% calibrated hit rate, the scan declares a NO-TRADE DAY
-and the ledger stays closed — that's a feature, not a failure. The paper
-ledger (`data/paper_ledger.csv`) settles each pick against the next session
-automatically on the following `daily` run.
+printed a clean +8% pop. `--min-exp-hit` enforces no-trade discipline: if
+nothing clears the calibrated hit-rate bar, the scan declares a NO-TRADE DAY
+and the ledger stays closed — that's a feature, not a failure. Calibrate the
+threshold to the current target: under "clean_pop" the top pick averages a
+13% hit rate, so `--min-exp-hit 0.1` keeps only above-average days (the old
+0.4 gate belongs to the old any-touch label and would block everything). The
+paper ledger (`data/paper_ledger.csv`) settles each pick against the next
+session automatically on the following `daily` run.
 
 ## Hyperparameter Search
 
@@ -327,7 +351,7 @@ Common options:
 gsp/universe.py  -> choose tickers
 gsp/data.py      -> download and cache daily OHLCV
 gsp/features.py  -> point-in-time technical and market-regime features
-gsp/labels.py    -> next-session +8% intraday target
+gsp/labels.py    -> next-session clean +8% intraday target
 gsp/dataset.py   -> stack tickers into one training table
 gsp/model.py     -> LightGBM and embargoed walk-forward evaluation
 gsp/backtest.py  -> ranking metrics and naive strategy simulation
@@ -344,9 +368,13 @@ Edit [gsp/config.py](gsp/config.py) for experiment-level settings.
 Important knobs:
 
 - `TARGET_MOVE`: default `0.08` for an 8% target.
-- `TARGET_MODE`: default `"high_vs_open"`, the tradeable intraday target.
+- `TARGET_MODE`: default `"clean_pop"` — the pop must arrive without dipping
+  more than `MAX_DIP` below the entry open (`"high_vs_open"` = any touch).
+- `MAX_DIP`: default `0.04` — the dip tolerance that defines a clean pop.
 - `MIN_PRICE`: default `15.00` — excludes penny/low-priced names (< $15) from training.
-- `MIN_DOLLAR_VOLUME`: default `1_000_000`.
+- `MIN_DOLLAR_VOLUME`: default `10_000_000`.
+- `MAX_ATR_PCT`: default `0.08` — volatility ceiling; wilder names are excluded
+  from training and the scan.
 - `TOP_K`: default number of names used in strategy simulation.
 - `WALKFORWARD_TRAIN_YEARS`, `WALKFORWARD_TEST_MONTHS`, `EMBARGO_DAYS`: validation
   geometry.
